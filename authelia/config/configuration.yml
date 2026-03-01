@@ -1,0 +1,70 @@
+server:
+  address: tcp://0.0.0.0:9091/
+log:
+  level: debug
+theme: dark
+default_redirection_url: https://auth.website.com
+
+authentication_backend:
+  file:
+    path: /config/users.yml
+    password:
+      algorithm: argon2
+      argon2:
+        variant: argon2id
+        iterations: 1
+        memory: 2097152
+        parallelism: 4
+        key_length: 32
+        salt_length: 16
+
+access_control:
+  default_policy: deny
+  rules:
+    # Rule to bypass authentication for specific API paths
+    - domain: "example.website.com"
+      resources:
+        - '^/webhook.*$'
+      policy: bypass
+
+    # Rules applied to everyone
+    - domain: "*.website.com"
+      policy: two_factor
+
+session:
+  name: authelia_session
+  expiration: 28800  # 8 hour
+  inactivity: 28800  # 8 hour
+  domain: website.com  # Should match whatever your root protected domain is
+
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+storage:
+  local:
+    path: /config/db.sqlite3
+
+notifier:
+  smtp:
+    address: 'submission://smtp.gmail.com:587'
+    username: 'email@email.com'
+    password: 'google app password' #add here for 2FA emails
+    sender: 'Authelia <authelia@schrammlab.org>'
+
+totp:
+  disable: false
+  issuer: 'example' #Name of website
+  algorithm: 'sha1'
+  digits: 6
+  period: 30
+  skew: 1
+  secret_size: 32
+  allowed_algorithms:
+    - 'SHA1'
+  allowed_digits:
+    - 6
+  allowed_periods:
+    - 30
+  disable_reuse_security_policy: false
