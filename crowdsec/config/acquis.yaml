@@ -1,0 +1,10 @@
+filenames:
+  - /var/log/caddy/access.log
+labels:
+  type: caddy
+---
+source: docker
+container_name:
+  - authelia
+labels:
+  type: authelia
