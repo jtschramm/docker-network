@@ -59,6 +59,8 @@ api:
       - 192.168.1.0/24
 ```
 
+When configuring your dashboard, you'll need the local API URL and credentials — these can be found in `crowdsec/config/local_api_credentials.yaml` after the service has started for the first time.
+
 Once the service is running, connect CrowdSec to the Caddy bouncer:
 ```bash
 docker exec crowdsec cscli bouncers add caddy
