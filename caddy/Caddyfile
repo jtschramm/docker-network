@@ -1,0 +1,60 @@
+{
+    admin :2019
+    order crowdsec before respond
+    crowdsec {
+        api_url http://crowdsec:8080
+        api_key {env.CROWDSEC_API_KEY}
+        ticker_interval 15s
+    }
+}
+
+(authelia_protect) {
+    @external {
+        not remote_ip 192.168.1.0/24 172.19.0.0/24 #bypass for LAN IP and docker containers
+    }
+    forward_auth @external authelia:9091 {
+        uri /api/verify?rd=https://auth.website.com #make sure to replace with your website below
+        copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+    }
+}
+
+(site_defaults) {
+    crowdsec
+    import authelia_protect
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 30MiB
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# Authelia portal
+auth.website.com {
+    crowdsec
+    reverse_proxy authelia:9091
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 30MiB
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# Normal website
+site1.website.com {
+    import site_defaults
+    reverse_proxy 192.168.1.x:xxxx
+}
+
+#site that uses self signed certificate, won't work with above so need tls skip verify
+site2.website.com{
+    import site_defaults
+    reverse_proxy 192.168.1.x:xxxx {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
