@@ -1,6 +1,6 @@
 # Overview
 
-I wanted to set up a combination of Caddy for reverse proxy with Authelia and CrowdSec handling security for my self-hosted applications. I was unimpressed with the available resources for creating this stack, so it took a lot of trial and error to get things working. Hopefully this guide saves someone else that trouble.
+I wanted to set up a combination of Caddy for reverse proxy with Authelia and CrowdSec handling security for my self-hosted applications. I was still confused with the available resources for creating this stack, so it took a lot of trial and error to get things working. Hopefully this guide saves someone else that trouble. Credit to [Genie0720](https://github.com/genie0720/genieaj_homelab_stacks/) and their homelab stack for the best explanations.
 
 **Prerequisites:** Docker and Docker Compose v2 installed on your host. Clone this repository and work from within each service's directory as you go.
 
