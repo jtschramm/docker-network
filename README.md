@@ -6,9 +6,27 @@ I wanted to set up a combination of Caddy for reverse proxy with Authelia and Cr
 
 ---
 
+# Initial Setup
+
+Before bringing the stack up, there are a few values that need to be filled in first.
+
+**Authelia secrets:** For each value in the `secrets` section of `authelia/config/configuration.yml`, generate a unique random string with:
+```bash
+docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --random --random.length 64 --random.charset alphanumeric
+```
+
+**Authelia domain:** Replace all `website.com` entries in `authelia/config/configuration.yml` with your actual domain.
+
+Once those are filled in, bring the full stack up:
+```bash
+docker compose up -d
+```
+
+---
+
 # Caddy
 
-Caddy should be the most straightforward to get running. Just add the files and `compose up`. This uses a maintained Docker image that automatically incorporates the `caddy-bouncer` module that CrowdSec needs to communicate with Caddy.
+This uses a maintained Docker image that automatically incorporates the `caddy-bouncer` module that CrowdSec needs to communicate with Caddy.
 
 > **Note:** The `.env` file contains a CrowdSec bouncer API key that you won't have until the CrowdSec setup step — leave it placeholder for now and come back to it then.
 
@@ -23,31 +41,38 @@ Don't point traffic at it just yet — we need to set up the other services firs
 
 # Authelia
 
-Install the GitHub files and make the appropriate changes to `config/configuration.yml`:
-- Replace all `website.com` entries with your actual domain.
-- Adjust access control rules as needed. For example, you may want to bypass 2FA for certain services on your LAN (e.g. a local LLM that needs to be reachable by other services without interactive auth).
-- For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
-
-For each value in the `secrets` section, generate a unique random string with:
-```bash
-docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --random --random.length 64 --random.charset alphanumeric
-```
-
-Once configuration is complete, run `compose up`. Authelia will generate the remaining config files on first start, including `config/users_database.yml`. Bring it back down, then edit `config/users_database.yml` to set your username. For the password field, generate a hash of your chosen password with:
+After the stack is up, Authelia will have generated its remaining config files including `config/users_database.yml`. You can now set your username there and generate a password hash with:
 
 ```bash
-docker run -v ./configuration.yml:/configuration.yml --rm authelia/authelia:latest authelia crypto hash generate --config /configuration.yml --password 'your-password'
+docker run -v ./authelia/configuration.yml:/configuration.yml --rm authelia/authelia:latest authelia crypto hash generate --config /configuration.yml --password 'your-password'
 ```
 
-> **Note:** Run this command from within the Authelia directory so the config file path resolves correctly.
+> **Note:** Run this command from the root of the repository so the config file path resolves correctly.
 
-Paste the resulting hash into the `password` field in `users_database.yml` (in quotes), then bring the service back up.
+Paste the resulting hash into the `password` field in `users_database.yml` (in quotes).
+
+You may also want to adjust access control rules as needed — for example, bypassing 2FA for certain services on your LAN. For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
+
+Restart Caddy to apply any changes:
+```bash
+docker compose restart authelia
+```
 
 ---
 
 # CrowdSec
 
-Add the files and run `compose up`.
+Once the stack is up, connect CrowdSec to the Caddy bouncer:
+```bash
+docker exec crowdsec cscli bouncers add caddy
+```
+
+Copy the generated API key into the `CROWDSEC_API_KEY` value in `caddy/.env`, then restart Caddy to pick it up:
+```bash
+docker compose restart caddy
+```
+
+> **Important:** If you ever need to restart the full stack with `compose down`, you may need to re-add the bouncer and update the `.env` with the new key, as the old key will be invalidated. Where possible, restart services individually to avoid this (e.g. `docker compose restart caddy`).
 
 If you plan on using a local dashboard such as [CrowdSec Web UI](https://github.com/TheDuffman85/crowdsec-web-ui) or [Homepage](https://gethomepage.dev/), you'll need to whitelist your local IP address in `config/config.yaml` so the dashboard can reach the CrowdSec API. Add your local subnet under the `api.server.trusted_ips` section, for example:
 
@@ -59,24 +84,15 @@ api:
       - 192.168.1.0/24
 ```
 
-When configuring your dashboard, you'll need the local API login and credentials — these can be found in `crowdsec/config/local_api_credentials.yaml` after the service has started for the first time.
-
-Once the service is running, connect CrowdSec to the Caddy bouncer:
-```bash
-docker exec crowdsec cscli bouncers add caddy
-```
-
-Copy the generated API key into the `CROWDSEC_API_KEY` value in Caddy's `.env` file, then restart the Caddy service.
+When configuring your dashboard, you'll need the local API URL and credentials — these can be found in `crowdsec/config/local_api_credentials.yaml` after the service has started for the first time.
 
 ---
 
 # WG-Easy
 
-Run `compose up`, then visit `http://<your-server-ip>:<port>` to finish setup and create your first tunnel.
+Visit `http://<your-server-ip>:<port>` to finish setup and create your first tunnel.
 
 > **Note:** If your router's gateway is not `192.168.1.1`, update the `WG_DEFAULT_DNS` or gateway value in the compose file accordingly.
-
-For the DNS override mentioned in the Final Steps, see the split-DNS note below.
 
 ---
 
