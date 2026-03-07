@@ -1,0 +1,95 @@
+services:
+  authelia:
+    container_name: authelia
+    image: docker.io/authelia/authelia:latest
+    restart: unless-stopped
+    networks:
+      - caddy
+    environment:
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: '/secrets/JWT_SECRET'
+      AUTHELIA_SESSION_SECRET_FILE: '/secrets/SESSION_SECRET'
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: '/secrets/STORAGE_ENCRYPTION_KEY'
+    volumes:
+      - './authelia/config:/config'
+      - './authelia/secrets:/secrets'
+
+  caddy:
+    image: serfriz/caddy-crowdsec:latest
+    container_name: caddy
+    restart: unless-stopped
+    env_file:
+      - ./caddy/.env
+    environment:
+      - CADDY_ADMIN=:2019
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "2019:2019"
+    volumes:
+      - './caddy/Caddyfile:/etc/caddy/Caddyfile:ro'
+      - caddy-config:/config
+      - caddy-data:/data
+      - ./caddy/logs:/var/log/caddy
+    networks:
+      - caddy
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    environment:
+      COLLECTIONS: "crowdsecurity/linux crowdsecurity/caddy crowdsecurity/appsec-generic-rules crowdsecurity/appsec-virtual-patching LePresidente/authelia"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./crowdsec/config/acquis.yaml:/etc/crowdsec/acquis.yaml
+      - ./crowdsec/config:/etc/crowdsec/
+      - crowdsec-db:/var/lib/crowdsec/data/
+      - ./caddy/logs/:/var/log/caddy/:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - caddy
+    restart: unless-stopped
+  
+  wg-easy:
+    environment:
+      # ⚠️ Required:
+      # Change this to your host's public address
+      - WG_HOST=PublicIP
+
+      # Optional:
+      # - PASSWORD=may101992
+      # - WG_PORT=51820
+      # - WG_DEFAULT_ADDRESS=10.8.0.x
+      - WG_DEFAULT_DNS=192.168.1.1
+      # - WG_MTU=1420
+      - WG_ALLOWED_IPS=0.0.0.0/0, ::/0
+      # - WG_PRE_UP=echo "Pre Up" > /etc/wireguard/pre-up.txt
+      # - WG_POST_UP=echo "Post Up" > /etc/wireguard/post-up.txt
+      # - WG_PRE_DOWN=echo "Pre Down" > /etc/wireguard/pre-down.txt
+      # - WG_POST_DOWN=echo "Post Down" > /etc/wireguard/post-down.txt
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    volumes:
+      - ./wgeasy:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+      - "51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    name: caddy
+
+volumes:
+  caddy-config:
+  caddy-data:
+  crowdsec-db:
