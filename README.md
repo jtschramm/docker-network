@@ -51,7 +51,9 @@ docker run -v ./authelia/configuration.yml:/configuration.yml --rm authelia/auth
 
 Paste the resulting hash into the `password` field in `users_database.yml` (in quotes).
 
-You may also want to adjust access control rules as needed — for example, bypassing 2FA for certain services on your LAN. For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
+You may also want to adjust access control rules as needed — for example, bypassing 2FA for certain services on your LAN. 
+
+For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
 
 Restart Caddy to apply any changes:
 ```bash
