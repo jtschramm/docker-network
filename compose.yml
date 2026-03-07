@@ -33,6 +33,9 @@ services:
       - ./caddy/logs:/var/log/caddy
     networks:
       - caddy
+    depends_on:
+      - crowdsec
+      - authelia
 
   crowdsec:
     image: crowdsecurity/crowdsec:latest
