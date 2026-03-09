@@ -31,7 +31,6 @@ This uses a maintained Docker image that automatically incorporates the `caddy-b
 > **Note:** The `.env` file contains a CrowdSec bouncer API key that you won't have until the CrowdSec setup step — leave it placeholder for now and come back to it then.
 
 In the `Caddyfile`, notice a few things:
-- The admin port is open so that dashboard services can access it.
 - The Authelia rule is bypassed for anything on the LAN and the local Docker IP range.
 - The `site_defaults` snippet ensures all services are passed through CrowdSec and Authelia, and logs interactions to the Caddy access log for CrowdSec to monitor.
 
