@@ -8,14 +8,20 @@ I wanted to set up a combination of Caddy for reverse proxy with Authelia and Cr
 
 # Initial Setup
 
-Before bringing the stack up, there are a few values that need to be filled in first.
-
-**Authelia secrets:** For each value in the `secrets` section of `authelia/config/configuration.yml`, generate a unique random string with:
+Before bringing the stack up, there are a few values that need to be filled in first. Generate a strong random value for each of the following using:
 ```bash
-docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --random --random.length 64 --random.charset alphanumeric
+openssl rand -hex 32
 ```
 
-**Authelia domain:** Replace all `website.com` entries in `authelia/config/configuration.yml` with your actual domain.
+Fill in the root `.env` file (a `.env.example` is included in the repo as a reference):
+```
+CROWDSEC_API_KEY=your-generated-key
+```
+
+And place unique generated values in the `authelia/secrets/` directory as individual files:
+- `authelia/secrets/JWT_SECRET`
+- `authelia/secrets/SESSION_SECRET`
+- `authelia/secrets/STORAGE_ENCRYPTION_KEY`
 
 Once those are filled in, bring the full stack up:
 ```bash
@@ -28,8 +34,6 @@ docker compose up -d
 
 This uses a maintained Docker image that automatically incorporates the `caddy-bouncer` module that CrowdSec needs to communicate with Caddy.
 
-> **Note:** The `.env` file contains a CrowdSec bouncer API key that you won't have until the CrowdSec setup step — leave it placeholder for now and come back to it then.
-
 In the `Caddyfile`, notice a few things:
 - The Authelia rule is bypassed for anything on the LAN and the local Docker IP range.
 - The `site_defaults` snippet ensures all services are passed through CrowdSec and Authelia, and logs interactions to the Caddy access log for CrowdSec to monitor.
@@ -40,7 +44,14 @@ Don't point traffic at it just yet — we need to set up the other services firs
 
 # Authelia
 
-After the stack is up, Authelia will have generated its remaining config files including `config/users_database.yml`. You can now set your username there and generate a password hash with:
+After the stack is up, Authelia will have generated its remaining config files.
+
+Start by editing `authelia/config/configuration.yml`:
+- Replace all `website.com` entries with your actual domain.
+- Review the access control rules and adjust them to your needs — for example, you can bypass 2FA for specific services on your LAN or allowlist certain IP ranges.
+- For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
+
+Next, set your username in `config/users_database.yml` and generate a password hash with:
 
 ```bash
 docker run -v ./authelia/configuration.yml:/configuration.yml --rm authelia/authelia:latest authelia crypto hash generate --config /configuration.yml --password 'your-password'
@@ -50,11 +61,7 @@ docker run -v ./authelia/configuration.yml:/configuration.yml --rm authelia/auth
 
 Paste the resulting hash into the `password` field in `users_database.yml` (in quotes).
 
-You may also want to adjust access control rules as needed — for example, bypassing 2FA for certain services on your LAN. 
-
-For email-based 2FA, you can use a Gmail account by generating an app password at: https://myaccount.google.com/apppasswords
-
-Restart Caddy to apply any changes:
+Restart Authelia to apply any changes:
 ```bash
 docker compose restart authelia
 ```
@@ -63,17 +70,7 @@ docker compose restart authelia
 
 # CrowdSec
 
-Once the stack is up, connect CrowdSec to the Caddy bouncer:
-```bash
-docker exec crowdsec cscli bouncers add caddy
-```
-
-Copy the generated API key into the `CROWDSEC_API_KEY` value in `caddy/.env`, then restart Caddy to pick it up:
-```bash
-docker compose restart caddy
-```
-
-> **Important:** If you ever need to restart the full stack with `compose down`, you may need to re-add the bouncer and update the `.env` with the new key, as the old key will be invalidated. Where possible, restart services individually to avoid this (e.g. `docker compose restart caddy`).
+Once the stack is up, the Caddy bouncer is automatically registered using the `CROWDSEC_API_KEY` from your `.env` file.
 
 If you plan on using a local dashboard such as [CrowdSec Web UI](https://github.com/TheDuffman85/crowdsec-web-ui) or [Homepage](https://gethomepage.dev/), you'll need to whitelist your local IP address in `config/config.yaml` so the dashboard can reach the CrowdSec API. Add your local subnet under the `api.server.trusted_ips` section, for example:
 
